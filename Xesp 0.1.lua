@@ -5,7 +5,7 @@ local function ToggleEspVisibility()
 end
 
 -- Function to add ESP highlight to a character
-local function addHighlight(character)
+local function addHighlight(character, teamColor)
     if not character:FindFirstChild("HumanoidRootPart") then return end
     
     -- Remove existing highlights
@@ -17,7 +17,7 @@ local function addHighlight(character)
     local highlight = Instance.new("Highlight")
     highlight.Name = "HighlightESP"
     highlight.Adornee = character
-    highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Green
+    highlight.FillColor = teamColor or Color3.fromRGB(255, 255, 255) -- Default to white
     highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0.2
     highlight.Enabled = true
@@ -36,7 +36,8 @@ local function updateESP()
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= game.Players.LocalPlayer and player.Character then
             if IsEspEnabled then
-                addHighlight(player.Character)
+                local teamColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 255, 255)
+                addHighlight(player.Character, teamColor)
             else
                 removeHighlight(player.Character)
             end
@@ -48,7 +49,8 @@ end
 game.Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         if IsEspEnabled then
-            addHighlight(character)
+            local teamColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 255, 255)
+            addHighlight(character, teamColor)
         end
     end)
 end)
@@ -56,7 +58,8 @@ end)
 -- Initial update for current players
 for _, player in pairs(game.Players:GetPlayers()) do
     if player.Character then
-        addHighlight(player.Character)
+        local teamColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 255, 255)
+        addHighlight(player.Character, teamColor)
     end
 end
 
@@ -73,7 +76,6 @@ local function createEspButton()
     EspToggleFrame.BorderSizePixel = 4
     EspToggleFrame.Parent = ButtonsGui
     EspToggleFrame.Active = true
-    EspToggleFrame.Draggable = false -- Will handle custom dragging logic
 
     local ButtonEsp = Instance.new("TextButton")
     ButtonEsp.Name = "ButtonEsp"
@@ -84,17 +86,26 @@ local function createEspButton()
     ButtonEsp.BorderSizePixel = 0
     ButtonEsp.Parent = EspToggleFrame
 
-    -- Custom dragging logic
-    local dragging = false
-    local dragInput, dragStart, startPos
+    -- Custom dragging logic for mobile
     local UIS = game:GetService("UserInputService")
+    local dragging = false
+    local dragStart, startPos
+
+    local function updatePosition(input)
+        local delta = input.Position - dragStart
+        EspToggleFrame.Position = UDim2.new(
+            0,
+            math.clamp(startPos.X.Offset + delta.X, 0, game.Workspace.CurrentCamera.ViewportSize.X - EspToggleFrame.AbsoluteSize.X),
+            0,
+            math.clamp(startPos.Y.Offset + delta.Y, 0, game.Workspace.CurrentCamera.ViewportSize.Y - EspToggleFrame.AbsoluteSize.Y)
+        )
+    end
 
     EspToggleFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = EspToggleFrame.Position
-
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -104,21 +115,8 @@ local function createEspButton()
     end)
 
     EspToggleFrame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            local newPosition = UDim2.new(
-                math.clamp(startPos.X.Scale, 0, 1), 
-                math.clamp(startPos.X.Offset + delta.X, 0, game.Workspace.CurrentCamera.ViewportSize.X - EspToggleFrame.AbsoluteSize.X),
-                math.clamp(startPos.Y.Scale, 0, 1), 
-                math.clamp(startPos.Y.Offset + delta.Y, 0, game.Workspace.CurrentCamera.ViewportSize.Y - EspToggleFrame.AbsoluteSize.Y)
-            )
-            EspToggleFrame.Position = newPosition
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
+            updatePosition(input)
         end
     end)
 
