@@ -1,123 +1,134 @@
--- Function to create health bar
-local function createHealthBar()
-    -- Create a ScreenGui for the health bar
-    local healthGui = Instance.new("ScreenGui")
-    healthGui.Name = "HealthGui"
-    healthGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-
-    -- Create a Frame for the health bar background
-    local backgroundFrame = Instance.new("Frame")
-    backgroundFrame.Name = "BackgroundFrame"
-    backgroundFrame.Size = UDim2.new(0.15, 0, 0.0375, 0) -- Reduced size (3/4 of original)
-    backgroundFrame.Position = UDim2.new(0.425, 0, 0.01, 0)
-    backgroundFrame.BackgroundColor3 = Color3.new(0, 0, 0)
-    backgroundFrame.BackgroundTransparency = 0.5 -- Increased transparency
-    backgroundFrame.BorderSizePixel = 2
-    backgroundFrame.Parent = healthGui
-
-    -- Create a Frame for the health bar
-    local healthFrame = Instance.new("Frame")
-    healthFrame.Name = "HealthFrame"
-    healthFrame.Size = UDim2.new(1, -4, 1, -4)
-    healthFrame.Position = UDim2.new(0, 2, 0, 2)
-    healthFrame.BackgroundColor3 = Color3.new(0, 1, 0)
-    healthFrame.BorderSizePixel = 0
-    healthFrame.Parent = backgroundFrame
-
-    return backgroundFrame, healthFrame
+-- Function to toggle ESP visibility
+local IsEspEnabled = false
+local function ToggleEspVisibility()
+    IsEspEnabled = not IsEspEnabled
 end
 
--- Function to update the health bar
-local function updateHealth(healthFrame)
-    local player = game.Players.LocalPlayer
-    if player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local maxHealth = humanoid.MaxHealth
-            local currentHealth = math.clamp(humanoid.Health, 0, maxHealth)
-            local healthPercentage = currentHealth / maxHealth
-            
-            -- Update the size of the health bar
-            healthFrame.Size = UDim2.new(math.clamp(healthPercentage, 0, 1), -4, 1, -4)
-            
-            -- Change color based on health percentage
-            if healthPercentage >= 0.5 then
-                healthFrame.BackgroundColor3 = Color3.new(0, 1, 0) -- Green
-            elseif healthPercentage >= 0.2 then
-                healthFrame.BackgroundColor3 = Color3.new(1, 1, 0) -- Yellow
+-- Function to add ESP highlight to a character
+local function addHighlight(character)
+    if not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    -- Remove existing highlights
+    if character:FindFirstChild("HighlightESP") then
+        character.HighlightESP:Destroy()
+    end
+
+    -- Add new highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "HighlightESP"
+    highlight.Adornee = character
+    highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Green
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0.2
+    highlight.Enabled = true
+    highlight.Parent = character
+end
+
+-- Function to remove ESP highlight from a character
+local function removeHighlight(character)
+    if character:FindFirstChild("HighlightESP") then
+        character.HighlightESP:Destroy()
+    end
+end
+
+-- Function to handle ESP toggling
+local function updateESP()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and player.Character then
+            if IsEspEnabled then
+                addHighlight(player.Character)
             else
-                healthFrame.BackgroundColor3 = Color3.new(1, 0, 0) -- Red
+                removeHighlight(player.Character)
             end
         end
     end
 end
 
--- Function to create draggable ESP button
+-- Connect to player added and character added events
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        if IsEspEnabled then
+            addHighlight(character)
+        end
+    end)
+end)
+
+-- Initial update for current players
+for _, player in pairs(game.Players:GetPlayers()) do
+    if player.Character then
+        addHighlight(player.Character)
+    end
+end
+
+-- Create draggable ESP toggle button
 local function createEspButton()
-    local Buttons1 = Instance.new("ScreenGui")
-    Buttons1.Name = "EspGui"
-    Buttons1.Parent = game.Players.LocalPlayer.PlayerGui
+    local ButtonsGui = Instance.new("ScreenGui")
+    ButtonsGui.Name = "ESPButtonsGui"
+    ButtonsGui.Parent = game.Players.LocalPlayer.PlayerGui
     
     local EspToggleFrame = Instance.new("Frame")
-    EspToggleFrame.Size = UDim2.new(0, 100, 0, 50)
-    EspToggleFrame.Position = UDim2.new(0.9, -100, 0.5, -25)
+    EspToggleFrame.Size = UDim2.new(0, 100, 0, 100) -- 1:1 ratio
+    EspToggleFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
     EspToggleFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     EspToggleFrame.BorderSizePixel = 4
-    EspToggleFrame.Parent = Buttons1
+    EspToggleFrame.Parent = ButtonsGui
     EspToggleFrame.Active = true
-    EspToggleFrame.Draggable = true
+    EspToggleFrame.Draggable = false -- Will handle custom dragging logic
 
-    -- Constraint to keep the button inside the screen
-    EspToggleFrame:GetPropertyChangedSignal("Position"):Connect(function()
-        local pos = EspToggleFrame.Position
-        EspToggleFrame.Position = UDim2.new(
-            math.clamp(pos.X.Scale, 0, 1 - (EspToggleFrame.Size.X.Offset / workspace.CurrentCamera.ViewportSize.X)),
-            math.clamp(pos.X.Offset, 0, workspace.CurrentCamera.ViewportSize.X - EspToggleFrame.Size.X.Offset),
-            math.clamp(pos.Y.Scale, 0, 1 - (EspToggleFrame.Size.Y.Offset / workspace.CurrentCamera.ViewportSize.Y)),
-            math.clamp(pos.Y.Offset, 0, workspace.CurrentCamera.ViewportSize.Y - EspToggleFrame.Size.Y.Offset)
-        )
+    local ButtonEsp = Instance.new("TextButton")
+    ButtonEsp.Name = "ButtonEsp"
+    ButtonEsp.Size = UDim2.new(0.8, 0, 0.8, 0)
+    ButtonEsp.Position = UDim2.new(0.1, 0, 0.1, 0)
+    ButtonEsp.Text = "Toggle ESP"
+    ButtonEsp.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    ButtonEsp.BorderSizePixel = 0
+    ButtonEsp.Parent = EspToggleFrame
+
+    -- Custom dragging logic
+    local dragging = false
+    local dragInput, dragStart, startPos
+    local UIS = game:GetService("UserInputService")
+
+    EspToggleFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = EspToggleFrame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
     end)
 
-    local buttonEsp = Instance.new("TextButton")
-    buttonEsp.Name = "ButtonEsp"
-    buttonEsp.Size = UDim2.new(0.8, 0, 0.8, 0)
-    buttonEsp.Position = UDim2.new(0.1, 0, 0.1, 0)
-    buttonEsp.Text = "Toggle ESP"
-    buttonEsp.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    buttonEsp.BorderSizePixel = 0
-    buttonEsp.Parent = EspToggleFrame
-
-    return buttonEsp
-end
-
--- Function to toggle ESP outlines
-local IsEspEnabled = false
-local function toggleESP()
-    IsEspEnabled = not IsEspEnabled
-    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-        if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            if IsEspEnabled then
-                local outline = Instance.new("SelectionBox")
-                outline.Name = "ESPOutline"
-                outline.Adornee = player.Character.Head
-                outline.LineThickness = 0.05
-                outline.Color3 = Color3.new(1, 0, 0) -- Red outline
-                outline.Parent = player.Character
-            else
-                if player.Character:FindFirstChild("ESPOutline") then
-                    player.Character.ESPOutline:Destroy()
-                end
-            end
+    EspToggleFrame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
         end
-    end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            local newPosition = UDim2.new(
+                math.clamp(startPos.X.Scale, 0, 1), 
+                math.clamp(startPos.X.Offset + delta.X, 0, game.Workspace.CurrentCamera.ViewportSize.X - EspToggleFrame.AbsoluteSize.X),
+                math.clamp(startPos.Y.Scale, 0, 1), 
+                math.clamp(startPos.Y.Offset + delta.Y, 0, game.Workspace.CurrentCamera.ViewportSize.Y - EspToggleFrame.AbsoluteSize.Y)
+            )
+            EspToggleFrame.Position = newPosition
+        end
+    end)
+
+    -- Button click to toggle ESP
+    ButtonEsp.MouseButton1Click:Connect(function()
+        if not dragging then
+            ToggleEspVisibility()
+            updateESP()
+        end
+    end)
 end
 
--- Connect button click to toggle ESP
-local espButton = createEspButton()
-espButton.MouseButton1Click:Connect(toggleESP)
-
--- Handle health bar updates
-local backgroundFrame, healthFrame = createHealthBar()
-game:GetService("RunService").RenderStepped:Connect(function()
-    updateHealth(healthFrame)
-end)
+createEspButton()
